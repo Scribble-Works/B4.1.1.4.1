@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AssignmentX: Altitude & Debt</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        :root {
+            --glass-bg: rgba(10, 25, 47, 0.98);
+            --glass-border: rgba(0, 210, 255, 0.4); 
+            --mathly-yellow: #f1c40f;
+            --mathly-blue: #00d2ff; 
+            --mathly-red: #ff4757;
+            --mathly-green: #2ecc71;
+            --text-main: #ccd6f6;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background: #0a192f; min-height: 100vh; display: flex; justify-content: center; align-items: center; color: var(--text-main); overflow: hidden; }
+
+        #bg-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+
+        .screen { 
+            display: none; width: 95%; max-width: 550px; background: var(--glass-bg); backdrop-filter: blur(25px); 
+            border: 1px solid var(--glass-border); border-radius: 40px; padding: 40px; text-align: center; 
+            z-index: 2; position: relative; box-shadow: 0 25px 60px rgba(0,0,0,0.8); 
+        }
+        .active { display: block; animation: zoomIn 0.3s ease-out; }
+        @keyframes zoomIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+
+        .internal-header { margin-bottom: 20px; border-bottom: 1px solid rgba(0, 210, 255, 0.1); padding-bottom: 15px; }
+        .header-main { display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 5px; }
+        .game-logo { width: 45px; height: 45px; object-fit: contain; filter: drop-shadow(0 0 5px var(--mathly-blue)); }
+        .internal-header h1 { color: var(--mathly-yellow); font-size: 1.4rem; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; margin: 0; }
+        
+        /* NUMBER LINE VISUAL */
+        #probe-viz { height: 120px; display: flex; align-items: center; justify-content: center; margin: 20px 0; background: rgba(255,255,255,0.03); border-radius: 20px; position: relative; overflow: hidden; border: 1px solid var(--glass-border); }
+        .line { width: 80%; height: 4px; background: #8892b0; position: relative; }
+        .zero-mark { position: absolute; left: 50%; top: -10px; width: 4px; height: 24px; background: white; transform: translateX(-50%); }
+        .probe-head { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; background: var(--mathly-blue); border-radius: 50%; transform: translate(-50%, -50%); transition: 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 0 15px var(--mathly-blue); }
+        
+        .btn-main { width: 100%; padding: 16px; border: none; border-radius: 15px; font-weight: 800; cursor: pointer; text-transform: uppercase; margin-top: 10px; transition: 0.2s; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn-proceed { background: var(--mathly-blue); color: #0a192f; }
+        .btn-mode { background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: white; }
+        .btn-back { background: rgba(255, 71, 87, 0.1); border: 1px solid var(--mathly-red); color: var(--mathly-red); }
+
+        input { width: 100%; padding: 18px; border-radius: 15px; border: 2px solid var(--glass-border); background: rgba(0,0,0,0.4); color: white; text-align: center; font-size: 2rem; outline: none; margin-top: 10px; }
+        
+        .timer-container { width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 10px; margin-bottom: 15px; overflow: hidden; }
+        #timer-bar { width: 100%; height: 100%; background: var(--mathly-red); transition: width 1s linear; }
+
+        .settings-bar { display: flex; justify-content: center; gap: 8px; margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.05); flex-wrap: wrap; }
+        .btn-setting { background: none; border: 1px solid rgba(255,255,255,0.1); color: #8892b0; padding: 8px 12px; border-radius: 8px; font-size: 0.65rem; font-weight: 700; cursor: pointer; text-transform: uppercase; transition: 0.2s; }
+
+        .modal { display: none; position: fixed; inset: 0; background: rgba(2, 12, 27, 0.98); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-content { background: var(--glass-bg); padding: 30px; border-radius: 30px; border: 1px solid var(--mathly-blue); width: 90%; max-width: 420px; text-align: left; }
+    </style>
+</head>
+<body>
+
+    <canvas id="bg-canvas"></canvas>
+
+    <div id="screen-welcome" class="screen active">
+        <div class="internal-header">
+            <div class="header-main">
+                <img src="https://cdn-icons-png.flaticon.com/512/3771/3771278.png" alt="Logo" class="game-logo">
+                <h1>Altitude & Debt</h1>
+            </div>
+            <span class="subtitle" style="font-size: 0.7rem; color: #8892b0;">B4.1.1.4.1 Real World Integers</span>
+        </div>
+        <div style="font-size: 4rem; margin-bottom: 20px;">🌡️ 💰</div>
+        <button class="btn-main btn-proceed" onclick="handleEnter()">INITIATE PROBE</button>
+        <button class="btn-main btn-mode" onclick="toggleModal(true)">📜 MISSION RULES</button>
+        <div class="settings-bar">
+            <button class="btn-setting btn-mute" onclick="toggleAudio()">🔊 SFX: OFF</button>
+            <button class="btn-setting" onclick="toggleFullscreen()">📺 FULLSCREEN</button>
+            <button class="btn-setting" style="color:var(--mathly-red)" onclick="clearProgress()">🗑 RESET</button>
+        </div>
+    </div>
+
+    <div id="screen-mode" class="screen">
+        <div class="internal-header"><h1>Select Sync</h1></div>
+        <button class="btn-main btn-mode" onclick="setMode('single')">👤 SINGLE PILOT</button>
+        <button class="btn-main btn-mode" onclick="setMode('multi')">👥 DUAL PILOTS</button>
+        <button class="btn-main btn-back" onclick="showScreen('screen-welcome')">⬅ BACK</button>
+    </div>
+
+    <div id="screen-names" class="screen">
+        <div class="internal-header"><h1>Identity Sync</h1></div>
+        <input type="text" id="input-p1" placeholder="PILOT 1 NAME">
+        <div id="p2-input-group" style="display:none; margin-top: 10px;"><input type="text" id="input-p2" placeholder="PILOT 2 NAME"></div>
+        <button class="btn-main btn-proceed" onclick="confirmNames()">CONNECT LINK</button>
+        <button class="btn-main btn-back" onclick="showScreen('screen-mode')">⬅ BACK</button>
+    </div>
+
+    <div id="screen-game" class="screen">
+        <div class="internal-header">
+            <div class="header-main">
+                <img src="https://cdn-icons-png.flaticon.com/512/3771/3771278.png" alt="Logo" class="game-logo">
+                <h1 id="lvl-title">Integer Probe</h1>
+            </div>
+            <span id="display-player-name" style="color: var(--mathly-blue); font-weight: 800; font-size: 0.8rem;">PILOT: ???</span>
+        </div>
+        
+        <div class="timer-container"><div id="timer-bar"></div></div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 800; margin-bottom: 5px;">
+            <div style="color: var(--mathly-blue);">SYNC: <span id="score">0</span></div>
+            <div style="color: var(--mathly-yellow);">TASK: <span id="q-count">1</span>/10</div>
+            <div style="color: var(--mathly-red);">⏳ <span id="timer-text">20</span>s</div>
+        </div>
+
+        <div id="probe-viz">
+            <div class="line">
+                <div class="zero-mark"></div>
+                <div id="probe-marker" class="probe-head"></div>
+            </div>
+            <div style="position:absolute; bottom:5px; width:100%; display:flex; justify-content:space-between; padding:0 15%; font-size:0.7rem; font-weight:900; color:#8892b0;">
+                <span>NEGATIVE (-)</span>
+                <span>POSITIVE (+)</span>
+            </div>
+        </div>
+
+        <div id="context-box" style="padding: 20px; background: rgba(0,0,0,0.4); border-radius: 15px; margin-bottom: 10px; min-height: 80px; display:flex; align-items:center; justify-content:center; border: 1px solid rgba(255,255,255,0.05);">
+            <p id="scenario-text" style="font-weight: 700; color: white;">Awaiting context...</p>
+        </div>
+
+        <input type="text" id="answerInput" placeholder="Use - for negatives" disabled>
+        <button class="btn-main btn-proceed" id="submitBtn" style="display:none">TRANSLATE DATA</button>
+        <button class="btn-main btn-proceed" id="startBtn">START PROBE</button>
+        
+        <div id="feedback-banner" style="height:30px; margin-top:10px; font-weight:900;"></div>
+
+        <div class="settings-bar">
+            <button class="btn-setting btn-back" onclick="location.reload()">🚪 EXIT</button>
+            <button class="btn-setting" style="color:var(--mathly-yellow)" onclick="getHint()">💡 HINT</button>
+            <button class="btn-setting btn-mute" onclick="toggleAudio()">🔊 SOUND</button>
+            <button class="btn-setting" onclick="toggleModal(true)">📜 RULES</button>
+        </div>
+    </div>
+
+    <div id="rules-modal" class="modal">
+        <div class="modal-content">
+            <h2 style="color:var(--mathly-yellow); margin-bottom:15px; text-transform:uppercase;">Mission Protocols</h2>
+            <ul style="list-style:none; font-size:0.85rem; line-height:1.6; color:var(--text-main); margin-bottom:20px;">
+                <li>🏦 <b style="color:var(--mathly-blue)">MONEY:</b> Savings/Profit are POSITIVE (+). Debt/Loss/Spending are NEGATIVE (-).</li>
+                <li>⛰️ <b style="color:var(--mathly-green)">ALTITUDE:</b> Above sea level is POSITIVE (+). Below sea level is NEGATIVE (-).</li>
+                <li>🌡️ <b style="color:var(--mathly-yellow)">TEMP:</b> Increases are (+) and drops/freezing points are (-).</li>
+                <li>🎯 <b style="color:var(--mathly-red)">TASK:</b> Translate the sentence into an integer. Don't forget the "-" sign!</li>
+            </ul>
+            <button class="btn-main btn-proceed" onclick="toggleModal(false)">SYSTEMS READY</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('bg-canvas'); const ctx = canvas.getContext('2d');
+        let symbols = []; const chars = ['+1', '-1', '0', '>', '<', '-5', '+5'];
+        function initBG() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; symbols = Array.from({length: 25}, () => ({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, char: chars[Math.floor(Math.random() * chars.length)], size: Math.random() * 20 + 20, speed: Math.random() * 0.3 + 0.1 })); }
+        function drawBG() { ctx.clearRect(0,0,canvas.width, canvas.height); ctx.fillStyle = '#00d2ff'; ctx.globalAlpha = 0.08; symbols.forEach(s => { ctx.font = `900 ${s.size}px Inter`; ctx.fillText(s.char, s.x, s.y); s.y -= s.speed; if(s.y < -50) s.y = canvas.height + 50; }); requestAnimationFrame(drawBG); }
+        initBG(); drawBG();
+
+        let audioInit = false; const synth = new Tone.PolySynth(Tone.Synth).toDestination();
+        async function initAudio() { if(!audioInit){ await Tone.start(); audioInit = true; }}
+        function toggleAudio() { initAudio(); gameData.isMuted = !gameData.isMuted; Tone.Destination.mute = gameData.isMuted; document.querySelectorAll('.btn-mute').forEach(b => b.innerText = gameData.isMuted ? "🔇 SFX: OFF" : "🔊 SFX: ON"); saveGame(); }
+
+        let gameData = JSON.parse(localStorage.getItem('ax_altitude_v1')) || { lastP1: "", lastP2: "", isMuted: true };
+        let game = { active: false, score: 0, questionsLeft: 10, targetAnswer: 0, mode: "single", turn: 1, timer: null };
+        const scenarios = [
+            { t: "You saved GH₵ 50 in your piggy bank.", v: 50 },
+            { t: "A fish swims 5 meters below sea level.", v: -5 },
+            { t: "The temperature dropped by 10 degrees.", v: -10 },
+            { t: "An elevator goes up 4 floors.", v: 4 },
+            { t: "You owe your friend GH₵ 20.", v: -20 },
+            { t: "A helicopter flies 100 meters high.", v: 100 },
+            { t: "You spent GH₵ 15 at the shop.", v: -15 },
+            { t: "The shop made GH₵ 200 profit.", v: 200 },
+            { t: "The team lost 3 points.", v: -3 },
+            { t: "A hiker climbed 40 meters up a hill.", v: 40 }
+        ];
+
+        function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+        function handleEnter() { initAudio(); document.getElementById('input-p1').value = gameData.lastP1; showScreen('screen-mode'); }
+        function setMode(m) { game.mode = m; document.getElementById('p2-input-group').style.display = m === 'multi' ? 'block' : 'none'; showScreen('screen-names'); }
+        function confirmNames() { game.p1 = document.getElementById('input-p1').value || "PILOT A"; game.p2 = document.getElementById('input-p2').value || "PILOT B"; gameData.lastP1 = game.p1; saveGame(); showScreen('screen-game'); }
+        function saveGame() { localStorage.setItem('ax_altitude_v1', JSON.stringify(gameData)); }
+        function clearProgress() { if(confirm("Erase Mission Data?")) { localStorage.removeItem('ax_altitude_v1'); location.reload(); } }
+        function toggleFullscreen() { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
+        function toggleModal(s) { document.getElementById('rules-modal').style.display = s ? 'flex' : 'none'; }
+
+        function generateProblem() {
+            document.getElementById('feedback-banner').innerText = "";
+            document.getElementById('display-player-name').innerText = (game.mode === 'multi') ? `TURN: ${(game.turn === 1) ? game.p1 : game.p2}` : `PILOT: ${game.p1}`;
+            
+            let s = scenarios[Math.floor(Math.random() * scenarios.length)];
+            document.getElementById('scenario-text').innerText = s.t;
+            game.targetAnswer = s.v;
+
+            const input = document.getElementById('answerInput');
+            input.value = ""; input.disabled = false; input.focus();
+            document.getElementById('probe-marker').style.left = "50%";
+            resetTimer();
+        }
+
+        function handleFeedback(isCorr) {
+            clearInterval(game.timer);
+            const banner = document.getElementById('feedback-banner');
+            document.getElementById('answerInput').disabled = true;
+            
+            // Visual mapping on number line
+            const scale = 50;
+            const clampedVal = Math.max(-scale, Math.min(scale, game.targetAnswer));
+            const pos = 50 + (clampedVal / scale) * 40;
+            document.getElementById('probe-marker').style.left = `${pos}%`;
+
+            if(isCorr) {
+                game.score += 10; banner.innerText = "✓ DATA VERIFIED!"; banner.style.color = "var(--mathly-green)";
+                synth.triggerAttackRelease(["C4", "E4", "G4"], "8n");
+            } else {
+                banner.innerText = `✗ SYNC ERROR! TARGET: ${game.targetAnswer}`; banner.style.color = "var(--mathly-red)";
+                synth.triggerAttackRelease(["F3", "Ab3"], "4n");
+            }
+            document.getElementById('score').innerText = game.score;
+            game.questionsLeft--;
+            document.getElementById('q-count').innerText = 11 - game.questionsLeft;
+            
+            if(game.mode === 'multi') game.turn = (game.turn === 1) ? 2 : 1;
+            setTimeout(() => { if(game.questionsLeft > 0) generateProblem(); else endMission(); }, 2000);
+        }
+
+        function resetTimer() {
+            clearInterval(game.timer); let t = 20;
+            game.timer = setInterval(() => { t--; document.getElementById('timer-text').innerText = t; document.getElementById('timer-bar').style.width = (t/20)*100 + "%"; if(t <= 0) handleFeedback(false); }, 1000);
+        }
+
+        function getHint() { alert("Keywords for Negative (-): Below, Owe, Dropped, Lost, Spent.\nKeywords for Positive (+): Above, Saved, Up, Profit."); }
+        function endMission() { alert(`Mission Complete! Final Score: ${game.score}`); location.reload(); }
+
+        document.getElementById('startBtn').onclick = () => { game.active = true; game.score = 0; game.questionsLeft = 10; document.getElementById('startBtn').style.display = 'none'; document.getElementById('submitBtn').style.display = 'block'; generateProblem(); };
+        document.getElementById('submitBtn').onclick = () => { const v = parseInt(document.getElementById('answerInput').value); if(!isNaN(v)) handleFeedback(v === game.targetAnswer); };
+        document.getElementById('answerInput').addEventListener('keypress', (e) => { if(e.key === 'Enter') document.getElementById('submitBtn').click(); });
+    </script>
+</body>
+</html>
